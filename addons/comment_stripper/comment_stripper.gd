@@ -18,100 +18,102 @@ func _exit_tree():
 
 # EditorExportPlugin for comment stripping
 class CommentStripperExportPlugin extends EditorExportPlugin:
-	var original_scripts: Dictionary = {}
+	var is_debug_build: bool = false
 	
 	func _export_begin(features: PackedStringArray, is_debug: bool, path: String, flags: int) -> void:
-		# Only strip comments on RELEASE builds (not debug builds)
-		if is_debug:
+		# Store debug state for use in _export_file
+		is_debug_build = is_debug
+		
+		if not is_debug_build:
+			print("Comment Stripper: Will strip comments for release build")
+	
+	func _export_file(path: String, type: String, features: PackedStringArray) -> void:
+		# Skip the plugin itself - don't include it in the export
+		if path.begins_with("res://addons/comment_stripper/"):
+			print("Comment Stripper: Skipping plugin file ", path)
+			skip()
+			return
+			
+		# Skip comment stripping for debug builds
+		if is_debug_build:
+			return
+			
+		# Only process .gd files
+		if not path.ends_with(".gd"):
 			return
 		
-		print("Comment Stripper: Stripping comments for release build")
-		_strip_comments_from_scripts()
-	
-	func _export_end() -> void:
-		print("Comment Stripper: Restoring comments")
-		_restore_comments_from_scripts()
-	
-	func _strip_comments_from_scripts():
-		"""Strip comments from all .gd scripts before export."""
-		var scripts_dir = "res://scripts"
-		original_scripts.clear()
-		
-		_recursive_strip_comments(scripts_dir)
-		print("Comment Stripper: Stripped comments from scripts")
-	
-	func _recursive_strip_comments(dir_path: String):
-		"""Recursively strip comments from all .gd files in directory and subdirectories."""
-		var dir = DirAccess.open(dir_path)
-		
-		if not dir:
+		# Only process files in the scripts directory
+		if not path.begins_with("res://scripts/"):
 			return
 		
-		dir.list_dir_begin()
-		var file_name = dir.get_next()
-		
-		while file_name != "":
-			var full_path = dir_path.path_join(file_name)
-			
-			if dir.current_is_dir():
-				# Recursively process subdirectories
-				_recursive_strip_comments(full_path)
-			elif file_name.ends_with(".gd"):
-				# Process .gd files
-				_strip_comments_from_file(full_path)
-			
-			file_name = dir.get_next()
-	
-	func _strip_comments_from_file(file_path: String):
-		"""Strip comments from a single .gd file."""
-		var file = FileAccess.open(file_path, FileAccess.READ)
+		# Read the original file content
+		var file = FileAccess.open(path, FileAccess.READ)
 		if not file:
 			return
 		
-		# Store original content for restoration
-		original_scripts[file_path] = file.get_as_text()
-		file.close()
-		
-		# Read and process content
-		file = FileAccess.open(file_path, FileAccess.READ)
 		var content = file.get_as_text()
 		file.close()
 		
-		# Strip comments
+		# Strip comments from the content
 		var stripped_content = _strip_comments(content)
 		
-		# Write stripped content back
-		file = FileAccess.open(file_path, FileAccess.WRITE)
-		if file:
-			file.store_string(stripped_content)
-			file.close()
-			print("Comment Stripper: Stripped comments from ", file_path)
+		# Add the stripped content to the export
+		add_file(path, stripped_content.to_utf8_buffer(), false)
+		
+		print("Comment Stripper: Stripped comments from ", path)
 	
 	func _strip_comments(content: String) -> String:
-		"""Remove comments from GDScript content."""
+		# Remove comments from GDScript content.
 		var lines = content.split("\n")
 		var stripped_lines: Array[String] = []
+		var in_multiline_comment = false
 		
 		for line in lines:
-			# Remove single-line comments (# ...)
-			var comment_pos = line.find("#")
-			if comment_pos >= 0:
-				line = line.substr(0, comment_pos)
+			var stripped_line = line
 			
-			# Remove empty lines (optional - you can comment this out)
-			if line.strip_edges() != "":
-				stripped_lines.append(line.strip_edges())
+			# Handle multi-line comments (""")
+			if not in_multiline_comment:
+				var start_pos = stripped_line.find('"""')
+				if start_pos >= 0:
+					var end_pos = stripped_line.find('"""', start_pos + 3)
+					if end_pos >= 0:
+						# Comment ends on same line
+						stripped_line = stripped_line.substr(0, start_pos) + stripped_line.substr(end_pos + 3)
+					else:
+						# Comment continues to next line
+						stripped_line = stripped_line.substr(0, start_pos)
+						in_multiline_comment = true
+			else:
+				var end_pos = stripped_line.find('"""')
+				if end_pos >= 0:
+					# Comment ends on this line
+					stripped_line = stripped_line.substr(end_pos + 3)
+					in_multiline_comment = false
+				else:
+					# Comment continues, skip this line entirely
+					stripped_line = ""
+			
+			# Only process single-line comments if not in multi-line comment
+			if not in_multiline_comment and stripped_line != "":
+				# Find # but ignore if it's inside a string
+				var comment_pos = -1
+				var in_string = false
+				var i = 0
+				
+				while i < stripped_line.length():
+					var char = stripped_line[i]
+					if char == '"' and (i == 0 or stripped_line[i - 1] != '\\'):
+						in_string = !in_string
+					elif char == '#' and not in_string:
+						comment_pos = i
+						break
+					i += 1
+				
+				if comment_pos >= 0:
+					stripped_line = stripped_line.substr(0, comment_pos)
+			
+			# Remove empty lines
+			if stripped_line.strip_edges() != "":
+				stripped_lines.append(stripped_line.strip_edges())
 		
 		return "\n".join(stripped_lines)
-	
-	func _restore_comments_from_scripts():
-		"""Restore original script content after export."""
-		for file_path in original_scripts:
-			var file = FileAccess.open(file_path, FileAccess.WRITE)
-			if file:
-				file.store_string(original_scripts[file_path])
-				file.close()
-				print("Comment Stripper: Restored comments to ", file_path)
-		
-		original_scripts.clear()
-		print("Comment Stripper: All comments restored")

@@ -16,6 +16,7 @@ A Godot export editor plugin that automatically strips comments from GDScript fi
 2. Enable the plugin in Project Settings → Plugins
 3. The plugin will automatically activate for all release exports
 4. The plugin outputs all actions to the console for monitoring
+5. The plugin will exclude itself from the export
 
 ### Supported File Structure
 
@@ -24,8 +25,7 @@ The plugin processes all `.gd` files in your `scripts/` directory:
 ## Technical Details
 
 - **File Processing**: Recursively scans directories and modifies `.gd` files in place
-- **Comment Detection**: Removes single-line comments (`# comment`) and empty lines
-- **Restoration**: Uses dictionary to store original code content after export
+- **Comment Detection**: Removes single-line comments (`# comment`), mult-line comments and empty lines
 
 ## Requirements
 
@@ -36,17 +36,6 @@ The plugin processes all `.gd` files in your `scripts/` directory:
 MIT License - see LICENSE file for details.
 
 ## Disclaimer
-
-**Version Control**: Be smart and always use version control to protect against accidents.
-
-This plugin modifies your source files during export. Godot does not allow redirection of scripts during export process. With this comes some potential danger.
-
-**You** are responsible for:
-
-- Backing up your project before using this plugin.
-- Testing the plugin in a safe environment first.
-- Ensuring your version control system is properly configured.
-- Any data loss or project corruption that may occur.
 
 The author is not liable for any damages or losses resulting from the use of this plugin.
 
