@@ -19,6 +19,9 @@ func _exit_tree():
 # EditorExportPlugin for comment stripping
 class CommentStripperExportPlugin extends EditorExportPlugin:
 	var is_debug_build: bool = false
+
+	func _get_name() -> String:
+		return "Comment Stripper"
 	
 	func _export_begin(features: PackedStringArray, is_debug: bool, path: String, flags: int) -> void:
 		# Store debug state for use in _export_file
