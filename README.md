@@ -23,8 +23,7 @@ The plugin processes all `.gd` files in your `scripts/` directory:
 
 ## Technical Details
 
-- **Export Integration**: Uses `EditorExportPlugin`
-- **File Processing**: Recursively scans directories using `DirAccess` and modifies `.gd` files in place
+- **File Processing**: Recursively scans directories and modifies `.gd` files in place
 - **Comment Detection**: Removes single-line comments (`# comment`) and empty lines
 - **Restoration**: Uses dictionary to store original code content after export
 
